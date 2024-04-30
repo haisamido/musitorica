@@ -10,18 +10,11 @@
  */
 
 #include <LiquidCrystal_I2C.h>
-
-LiquidCrystal_I2C lcd(0x27, 16, 2);  // Replace 0x27 with your LCD I2C address if different
-
 #include <Adafruit_NeoPixel.h>
-
 #include <Keypad.h>
 #include "icons.h"
 
-/* Locking mechanism definitions */
-#define SERVO_PIN        6
-#define SERVO_LOCK_POS   20
-#define SERVO_UNLOCK_POS 90
+LiquidCrystal_I2C lcd(0x27, 16, 2);  // Replace 0x27 with your LCD I2C address if different
 
 /* Keypad setup */
 const byte KEYPAD_ROWS    = 4;
@@ -42,10 +35,11 @@ Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, KEYPAD_ROWS, KEYPAD_C
 // input
 const uint8_t pitch_class_set[] = {0,1,3,5};
 
+// derived
 int number_of_pitches_in_pitch_class = sizeof(pitch_class_set);
 
 // defaults
-const float frequency_reference = 330.; // reference frequency, i.e. 0
+const float frequency_reference = 330.0; // reference frequency, i.e. 0
 const int number_of_pitches     = 12;   // equally tempered (e.g. 12 equal temperament)
 
 // NeoPixel : Bracelet
@@ -66,27 +60,36 @@ String join(uint8_t vals[], char sep, int items) {
   return out;
 }
 
+// global
+String pitch_class_set_string = "{" + join(pitch_class_set, ', ', number_of_pitches_in_pitch_class) + "}";
+
+void musical_modes(){
+    float cents;
+    int pitch_class_step;
+    for ( int i = 0; i < number_of_pitches_in_pitch_class; i++) {
+      cents            = i*100.0;
+      pitch_class_step = pitch_class_set[i];
+    }
+}
+
 void showStartupMessage() {
   lcd.setCursor(0, 0);
-  String message = "   ... MAQAMAT ...";
+  String message = " ... musitorica ...";
   
   for (byte i = 0; i < message.length(); i++) {
     lcd.print(message[i]);
     delay(100);
   }
   
-  delay(1000);
+  delay(2000);
 
-  lcd.setCursor(0, 1);
-  lcd.print("Mode: 1,");
-  lcd.setCursor(0, 2);
+  lcd.clear();
 
-  String pitch_class_set_string = "{ " + join(pitch_class_set, ', ', number_of_pitches_in_pitch_class) + " }";
-  lcd.print(pitch_class_set_string);
-
-  lcd.setCursor(0, 3);
+  // lcd.setCursor(0, 0); lcd.print("1: " + pitch_class_set_string);
+  // lcd.setCursor(0, 1); lcd.print("2: " + pitch_class_set_string);
 
   delay(500);
+  
 }
 
 void pitch_bracelet_startup() {
@@ -97,13 +100,13 @@ void pitch_bracelet_startup() {
 void setup() {
   Serial.begin(9600); // open the serial port at 9600 bps:
 
-  lcd.begin(16, 2);
-
+  lcd.begin(0, 0);
   lcd.init();
   lcd.backlight();  // Optional: turn on backlight\
 
   delay(10);
-  lcd.setCursor(4, 0);
+  
+  lcd.setCursor(0, 0);
 
   init_icons(lcd);
 
@@ -125,30 +128,50 @@ void loop() {
   float cents;
   
   int pitch_class_step;
+  int mode=1;
+  int row;
+  String pitch_class_set_mode;
 
-  for ( int i = 0; i < number_of_pitches_in_pitch_class; i++) {
+  for( int mode = 1; mode <= 3; mode++ ) {
 
-    cents            = i*100.0;
-    pitch_class_step = pitch_class_set[i];
+    row = mode - 1;
 
-    // turn on LED on neopixel for the pitch_class_step in question
-    pitch_bracelet.setPixelColor(pitch_class_step, 0, 255, 0);
-    pitch_bracelet.show();
+    for ( int i = 0; i < number_of_pitches_in_pitch_class; i++) {
+      cents            = i*100.0;
+      pitch_class_step = pitch_class_set[i];
 
-    Serial.print(pitch_class_step);
-    Serial.print("\t");
+      pitch_class_set_mode = pitch_class_set_string;
 
-    /* source: https://github.com/haisamido/maqamat/blob/main/maqamat.py#L62 */
-    frequency = frequency_from_cents(frequency_reference, cents, 1200);
 
-//    lcd.print(frequency);
-    Serial.print(frequency);
-    Serial.println();
+      lcd.setCursor(0, row); 
+      lcd.print(mode);
+      lcd.setCursor(2, row);
+      lcd.print(pitch_class_set_mode);
 
-    tone(SPEAKER_PIN, frequency);
-    delay(500);
-    noTone(SPEAKER_PIN);
+      // turn on LED on neopixel for the pitch_class_step in question
+      pitch_bracelet.setPixelColor(pitch_class_step, 0, 255, 0);
+      pitch_bracelet.show();
 
+      Serial.print(mode);
+      Serial.print("\t");
+      Serial.print(pitch_class_step);
+      Serial.print("\t");
+      Serial.print(pitch_class_set_mode);
+      Serial.print("\t");
+
+      /* source: https://github.com/haisamido/maqamat/blob/main/maqamat.py#L62 */
+      frequency = frequency_from_cents(frequency_reference, cents, 1200);
+
+  //    lcd.print(frequency);
+      Serial.print(frequency);
+      Serial.println();
+
+      tone(SPEAKER_PIN, frequency);
+      delay(500);
+      noTone(SPEAKER_PIN);
+    }
+
+      delay(1000);
   }
 
   Serial.println();
